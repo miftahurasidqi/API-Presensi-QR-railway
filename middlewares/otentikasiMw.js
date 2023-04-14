@@ -10,13 +10,21 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-const aksesPeran = (req, res, next) => {
+const hanyaAdmin = (req, res, next) => {
   const peran = req.user.peran; // Change with your own authentication mechanism
   if (peran !== "admin") {
-    return res.status(403).json({ message: "Forbidden" });
+    return res.status(403).json({ message: "Anda Bukan Admin" });
   }
 
   next();
 };
 
-module.exports = { verifyToken, aksesPeran };
+const hanyaPegawai = (req, res, next) => {
+  const peran = req.user.peran; // Change with your own authentication mechanism
+  if (peran !== "pegawai") {
+    return res.status(403).json({ message: "Anda Bukan Pegawai" });
+  }
+  next();
+};
+
+module.exports = { verifyToken, hanyaAdmin, hanyaPegawai };

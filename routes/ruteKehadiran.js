@@ -1,14 +1,16 @@
 const express = require("express");
 const { absen, semuaKehadiran, tampilkanKode } = require("../controllers/kehadiranCtr");
-// const { otentikasiMw } = require("../middlewares/otentikasiMw");
-// const { aksesPeran } = require("../middlewares/peranMw");
+const { verifyToken, hanyaAdmin, hanyaPegawai } = require("../middlewares/otentikasiMw");
 
-const rute = express.Router();
+const router = express.Router();
 
-rute.get("/kode");
-rute.post("/");
-rute.get("/");
+router.get("/kode", verifyToken, hanyaAdmin, tampilkanKode);
+router.get("/", verifyToken, hanyaAdmin, semuaKehadiran);
+router.post("/", verifyToken, hanyaPegawai, absen);
 
 // Add more routes as needed
+// rute.get("/kode", otentikasiMw, aksesPeran('admin'), tampilkanKode);
+// rute.post("/", otentikasiMw, aksesPeran('pegawai'), absen);
+// rute.get("/", otentikasiMw, aksesPeran('admin'), semuaKehadiran);
 
-module.exports = rute;
+module.exports = router;

@@ -2,38 +2,35 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Pegawai = require("../models/pegawai");
 
-const tambahData = async (nama, email, password, peran) => {
+const EnkripsiPassword = async (password) => {
   const salt = await bcrypt.genSalt(10);
   const passwordTerenkripsi = await bcrypt.hash(password, salt);
-
-  // Membuat pegawai baru
-  const pegawaiBaru = new Pegawai({ nama, email, password: passwordTerenkripsi, peran });
-
-  // Menyimpan pegawai baru ke database
-  await pegawaiBaru.save();
-  return pegawaiBaru;
+  return passwordTerenkripsi;
 };
 
 const tambahPegawai = async (req, res) => {
-  const { nama, email, password, peran } = req.body;
+  const { nama, nip, password, peran } = req.body;
 
   // Validasi data yang diterima dari request
-  if (!nama || !email || !password) {
-    return res.status(400).json({ message: "Nama, email dan password harus disertakan" });
+  if (!nama || !nip || !password) {
+    return res.status(400).json({ message: "Nama, NIP dan password harus disertakan" });
   }
 
   try {
-    // Mengecek apakah email sudah ada dalam database
-    const cekEmail = await Pegawai.findOne({ email });
-    if (cekEmail) {
-      return res.status(400).json({ message: "Email sudah digunakan" });
+    // Mengecek apakah nip sudah ada dalam database
+    const cekNIP = await Pegawai.findOne({ nip });
+    if (cekNIP) {
+      return res.status(400).json({ message: "NIP sudah digunakan" });
     }
-
+    // enkripsi password
+    const passwordTerenkripsi = await EnkripsiPassword(password);
     // Membuat pegawai baru
-    const pegawaiBaru = await tambahData(nama, email, password, peran);
-
+    const pegawaiBaru = new Pegawai({ nama, nip, password: passwordTerenkripsi, peran });
+    // Menyimpan pegawai baru ke database
+    await pegawaiBaru.save();
+    const response = { nama, nip, peran };
     // Mengirimkan response dengan pegawai yang baru dibuat
-    res.status(201).json(pegawaiBaru);
+    res.status(201).json(response);
   } catch (error) {
     console.error("Gagal menambahkan pegawai:", error);
     res.status(500).json({ message: "Gagal menambahkan pegawai" });
@@ -63,23 +60,27 @@ const semuaPegawai = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  const { email, password } = req.body;
+  const { nip, password } = req.body;
 
   try {
-    let pegawai = await Pegawai.findOne({ email });
+    let pegawai = await Pegawai.findOne({ nip });
     if (!pegawai) {
-      if (email === process.env.ADMINEMAIL && password === process.env.ADMINPASS) {
-        pegawai = await tambahData(email, email, password, "admin");
+      if (nip === process.env.ADMINNIP && password === process.env.ADMINPASS) {
+        const passwordTerenkripsi = await EnkripsiPassword(password);
+        // Membuat pegawai baru
+        const pegawaiBaru = new Pegawai({ nama: "admin", nip, password: passwordTerenkripsi, peran: "admin" });
+        // Menyimpan pegawai baru ke database
+        await pegawaiBaru.save();
+        const response = { nama, nip, peran };
       } else {
-        return res.status(400).json({ message: "Email atau password salah" });
+        return res.status(400).json({ message: "NIP atau password salah 1" });
       }
     }
 
     const isPasswordValid = await bcrypt.compare(password, pegawai.password);
     if (!isPasswordValid) {
-      return res.status(400).json({ message: "Email atau password salah" });
+      return res.status(400).json({ message: "NIP atau password salah 2" });
     }
-
     const token = jwt.sign({ id: pegawai._id, peran: pegawai.peran }, process.env.JWT_SECRET || "secret", {
       expiresIn: "1w",
     });
@@ -93,10 +94,8 @@ const login = async (req, res) => {
 const profil = async (req, res) => {
   try {
     const user = req.user;
-    console.log(user);
     // Mencari pegawai berdasarkan ID
-    const pegawai = await Pegawai.findById(req.user.id, { _id: 0, password: 0, __v: 0 });
-
+    const pegawai = await Pegawai.findById(user.id, { _id: 0, password: 0, __v: 0 });
     if (!pegawai) {
       // Jika pegawai tidak ditemukan, kirimkan pesan error
       return res.status(404).json({ message: "Data tidak ditemukan" });
