@@ -17,4 +17,4 @@ const skemaKehadiran = new Schema({
   },
 });
 
-module.exports = mongoose.model("Kehadiran", skemaKehadiran, "kehadiran");
+module.exports = mongoose.model("Kehadiran", skemaKehadiran);

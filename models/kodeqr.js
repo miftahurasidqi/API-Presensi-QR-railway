@@ -18,4 +18,4 @@ const kodeqrSchema = new Schema({
   },
 });
 
-module.exports = mongoose.model("KodeQr", kodeqrSchema, "kodeqr");
+module.exports = mongoose.model("KodeQr", kodeqrSchema);

@@ -21,5 +21,5 @@ const PegawaiSchema = new Schema({
     default: "pegawai",
   },
 });
-
-module.exports = mongoose.model("Pegawai", PegawaiSchema, "pegawai");
+//
+module.exports = mongoose.model("Pegawai", PegawaiSchema);
