@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const Kehadiran = require("../models/kehadiran");
 const KodeQR = require("../models/kodeqr");
 const Pegawai = require("../models/pegawai");
-const konversiWaktu = require("../middlewares/konversiWaktu");
+const { konversiWaktu } = require("../middlewares/konversiWaktu");
 
 function membuatKode(length) {
   return crypto
@@ -10,20 +10,100 @@ function membuatKode(length) {
     .toString("hex")
     .slice(0, length);
 }
+const waktu = (time) => {
+  const year = time.getFullYear();
+  const month = time.getMonth() + 1;
+  const date = time.getDate();
+  const jam = time.getHours();
+  const min = time.getMinutes();
+  const detik = time.getSeconds();
 
+  const waktu = [`${year}-${month}-${date}`, `${jam}-${min}-${detik}`];
+  return waktu;
+};
 const tampilkanKode = async (req, res) => {
-  const jenis = req.body.jenis;
-  const kode = await membuatKode(10);
-  const tanggal = await konversiWaktu();
   try {
-    const kodeBaru = new KodeQR({ kode, tanggal, jenis });
-    // Menyimpan kode baru ke database
-    await kodeBaru.save();
-    // Mengirimkan response dengan kehadiran yang baru dibuat
-    res.status(201).json({ data: kodeBaru });
+    const { GMT7Time } = konversiWaktu();
+    const generateKodeMasuk = membuatKode(10);
+    const generateKodeKeluar = membuatKode(10);
+
+    console.log(GMT7Time);
+    console.log(generateKodeKeluar);
+    console.log(generateKodeMasuk);
+    let kodeMasuk;
+    let kodeKeluar;
+
+    const cariKodeMasuk = await KodeQR.findOne({ jenis: "datang" });
+    if (!cariKodeMasuk) {
+      const masuk = new KodeQR({ kode: generateKodeMasuk, tanggal: GMT7Time, jenis: "datang" });
+      await masuk.save();
+      kodeMasuk = masuk;
+    } else {
+      kodeMasuk = cariKodeMasuk;
+    }
+    const cariKodeKeluar = await KodeQR.findOne({ jenis: "pulang" });
+    if (!cariKodeKeluar) {
+      const keluar = new KodeQR({ kode: generateKodeKeluar, tanggal: GMT7Time, jenis: "pulang" });
+      await keluar.save();
+      kodeKeluar = keluar;
+    } else {
+      kodeKeluar = cariKodeKeluar;
+    }
+    console.log([kodeMasuk, kodeKeluar]);
+    res.status(201).json({ kodeMasuk, kodeKeluar });
   } catch (error) {
     console.error("Gagal mengambil kode:", error);
     res.status(500).json({ message: "Gagal mengambil kode" });
+  }
+};
+
+const periksaKehadiranSaya = async (req, res) => {
+  try {
+    const user = req.user;
+    const pegawai = await Pegawai.findById(user.id);
+    if (!pegawai) {
+      return res.status(404).json({ message: "Pegawai tidak ditemukan" });
+    }
+    // const { GMT7Time, GMT } = konversiWaktu();
+    const mulai = new Date();
+    const akhir = new Date();
+    mulai.setHours(0, 0, 0, 1);
+    akhir.setHours(23, 59, 59, 10);
+
+    const periksaAbsenDatang = await Kehadiran.findOne({
+      pegawai: pegawai._id,
+      datang: {
+        $gte: mulai,
+        $lt: akhir,
+      },
+    });
+    console.log(periksaAbsenDatang);
+    const periksaAbsenPulang = await Kehadiran.findOne({
+      pegawai: pegawai._id,
+      pulang: {
+        $gte: mulai,
+        $lt: akhir,
+      },
+    });
+    if (periksaAbsenDatang && periksaAbsenPulang) {
+      const datang = periksaAbsenDatang.datang;
+      const pulang = periksaAbsenDatang.pulang;
+      const waktuDatang = waktu(datang);
+      const waktuPulang = waktu(pulang);
+      return res.status(200).json({ kehadiran: periksaAbsenPulang, waktu: { waktuDatang, waktuPulang }, message: ["Sudah absen masuk dan pulang", "11"] });
+    }
+    if (periksaAbsenDatang && !periksaAbsenPulang) {
+      const datang = periksaAbsenDatang.datang;
+      const waktuDatang = waktu(datang);
+
+      return res.status(201).json({ kehadiran: periksaAbsenDatang, waktu: { waktuDatang }, message: ["Sudah absen masuk, belum absen pulang", "10"] });
+    }
+    if (!periksaAbsenDatang && !periksaAbsenPulang) {
+      console.log("00");
+      return res.status(202).json({ kehadiran: null, message: ["Silahkan scan kode untuk absen masuk", "00"] });
+    }
+  } catch (error) {
+    console.log(error);
   }
 };
 
@@ -31,44 +111,41 @@ const absen = async (req, res) => {
   try {
     const { kode } = req.body;
     const user = req.user;
-
-    // Mencari kode
-    const dataKode = await KodeQR.findOne({ kode });
-    if (!dataKode) {
-      // Jika pegawai tidak ditemukan, kirimkan pesan error
-      return res.status(404).json({ message: "Kode QR tidak ditemukan" });
-    }
-    // Mencari pegawai berdasarkan ID
+    console.log(kode);
     const pegawai = await Pegawai.findById(user.id);
-    // Jika pegawai tidak ditemukan, kirimkan pesan error
     if (!pegawai) {
       return res.status(404).json({ message: "Pegawai tidak ditemukan" });
     }
+    const dataKode = await KodeQR.findOne({ kode });
+    if (!dataKode) {
+      return res.status(404).json({ message: "Kode QR tidak ditemukan" });
+    }
 
-    // Membuat variabel tanggal untuk awal dan akhir hari ini
-    const jamMulai = await konversiWaktu();
-    const jamAkhir = await konversiWaktu();
-    jamMulai.setHours(0, 0, 0, 0);
-    jamAkhir.setHours(23, 59, 59, 999);
+    // const { GMT7Time } = konversiWaktu();
+    const mulai = new Date();
+    const akhir = new Date();
+    mulai.setHours(0, 0, 0, 1);
+    akhir.setHours(23, 59, 59, 10);
     // Mencari pegawai apakah sudah absen
     const sudahAbsen = await Kehadiran.findOne({
       pegawai: pegawai._id,
       datang: {
-        $gte: jamMulai,
-        $lt: jamAkhir,
+        $gte: mulai,
+        $lt: akhir,
       },
     });
 
-    // Jika pegawai Belum absen masuk kirim pesan suruh masuk dahulu
     if (!sudahAbsen && dataKode.jenis === "pulang") {
       return res.status(404).json({ message: "Silahkan Absen masuk dahulu" });
-    } else if (sudahAbsen && dataKode.jenis === "datang") {
+    }
+    if (sudahAbsen && dataKode.jenis === "datang") {
       return res.status(404).json({ message: "Anda sudah Absen masuk, silahkan scan kode QR pulang" });
     }
 
     let pesan;
     let dataKehadiran;
-    const tanggal = await konversiWaktu();
+    const tanggal = new Date();
+
     if (!sudahAbsen && dataKode.jenis === "datang") {
       // Membuat kehadiran baru
       const kehadiranBaru = new Kehadiran({
@@ -83,8 +160,8 @@ const absen = async (req, res) => {
         {
           pegawai: pegawai._id,
           datang: {
-            $gte: jamMulai,
-            $lt: jamAkhir,
+            $gte: mulai,
+            $lt: akhir,
           },
           pulang: {
             $exists: false,
@@ -153,6 +230,7 @@ const semuaKehadiran = async (req, res) => {
 
 module.exports = {
   tampilkanKode,
+  periksaKehadiranSaya,
   absen,
   semuaKehadiran,
 };

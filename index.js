@@ -1,29 +1,27 @@
-const express = require("express");
-const mongoose = require("mongoose");
 const expressWs = require("express-ws");
-const cors = require("cors");
+const mongoose = require("mongoose");
+const express = require("express");
 const dotenv = require("dotenv");
 const morgan = require("morgan");
-const rutePegawai = require("./routes/rutePegawai");
+const cors = require("cors");
+
 const ruteKehadiran = require("./routes/ruteKehadiran");
+const rutePegawai = require("./routes/rutePegawai");
 const tes = require("./routes/tes");
 
 dotenv.config();
-
 const app = express();
 expressWs(app);
-
 app.use(cors());
 app.use(morgan("combined"));
 app.use(express.json());
 
-app.use("/pegawai", rutePegawai);
 app.use("/kehadiran", ruteKehadiran);
+app.use("/pegawai", rutePegawai);
 app.use("/", tes);
 
 const PORT = 3280;
 const ConectionsMongoDB = process.env.MONGO_URI;
-// Opsi koneksi (opsional)
 const options = {
   useNewUrlParser: true, // Gunakan parser URL baru
   useUnifiedTopology: true, // Gunakan topologi server yang terpusa
@@ -32,7 +30,7 @@ const options = {
 // connectTimeoutMS: 30000, // Atur waktu timeout (dalam milidetik)
 // }
 mongoose
-  .connect(ConectionsMongoDB, options)
+  .connect(ConectionsMongoDB)
   .then(() => {
     console.log("Terhubung dengan MongoDB");
     app.listen(PORT, () => {

@@ -1,10 +1,11 @@
 const express = require("express");
-const { absen, semuaKehadiran, tampilkanKode } = require("../controllers/kehadiranCtr");
+const { periksaKehadiranSaya, absen, semuaKehadiran, tampilkanKode } = require("../controllers/kehadiranCtr");
 const { verifyToken, hanyaAdmin, hanyaPegawai } = require("../middlewares/otentikasiMw");
 
 const router = express.Router();
 
 router.get("/kode", verifyToken, hanyaAdmin, tampilkanKode);
+router.get("/periksakehadiran", verifyToken, hanyaPegawai, periksaKehadiranSaya);
 router.get("/", verifyToken, hanyaAdmin, semuaKehadiran);
 router.post("/", verifyToken, hanyaPegawai, absen);
 

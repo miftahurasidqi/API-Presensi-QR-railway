@@ -6,6 +6,10 @@ const PegawaiSchema = new Schema({
     type: String,
     required: true,
   },
+  status: {
+    type: String,
+    required: true,
+  },
   nip: {
     type: String,
     required: true,

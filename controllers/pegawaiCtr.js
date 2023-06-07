@@ -9,27 +9,18 @@ const EnkripsiPassword = async (password) => {
 };
 
 const tambahPegawai = async (req, res) => {
-  const { nama, nip, password, peran } = req.body;
-
-  // Validasi data yang diterima dari request
-  if (!nama || !nip || !password) {
-    return res.status(400).json({ message: "Nama, NIP dan password harus disertakan" });
-  }
-
   try {
-    // Mengecek apakah nip sudah ada dalam database
+    const { nama, nip, status, password, peran } = req.body;
+    if (!nama || !nip || !password) return res.status(400).json({ message: "Nama, NIP, Status, role dan password harus disertakan" });
+
     const cekNIP = await Pegawai.findOne({ nip });
-    if (cekNIP) {
-      return res.status(400).json({ message: "NIP sudah digunakan" });
-    }
-    // enkripsi password
+    if (cekNIP) return res.status(400).json({ message: "NIP sudah digunakan" });
+
     const passwordTerenkripsi = await EnkripsiPassword(password);
-    // Membuat pegawai baru
-    const pegawaiBaru = new Pegawai({ nama, nip, password: passwordTerenkripsi, peran });
-    // Menyimpan pegawai baru ke database
+    const pegawaiBaru = new Pegawai({ nama, status, nip, password: passwordTerenkripsi, peran });
     await pegawaiBaru.save();
-    const response = { nama, nip, peran };
-    // Mengirimkan response dengan pegawai yang baru dibuat
+
+    const response = { nama, status, nip, peran };
     res.status(201).json(response);
   } catch (error) {
     console.error("Gagal menambahkan pegawai:", error);
@@ -39,20 +30,14 @@ const tambahPegawai = async (req, res) => {
 
 const semuaPegawai = async (req, res) => {
   try {
-    // Get the page number from the query parameter or use 1 as the default
-    const halaman = parseInt(req.query.halaman) || 1;
+    let halaman = parseInt(req.headers.halaman) || 1;
     const dataPerHalaman = 10;
-
-    // Calculate the total number of documents to determine the number of pages
     const totalDocuments = await Pegawai.countDocuments();
     const totalHalaman = Math.ceil(totalDocuments / dataPerHalaman);
     const skip = (halaman - 1) * dataPerHalaman;
 
-    // Retrieve employees from the database using pagination and sort them by name in ascending order
-    const data = await Pegawai.find({}, { _id: 0, password: 0, __v: 0 }).sort({ nama: 1 }).skip(skip).limit(dataPerHalaman);
-
-    // Send a response with the list of employees, current page, and total number of pages
-    res.status(200).json({ data, halaman, totalHalaman });
+    const user = await Pegawai.find({}, { password: 0, __v: 0 }).sort({ nama: 1 }).skip(skip).limit(dataPerHalaman);
+    res.status(200).json({ user, totalDocuments, halaman, totalHalaman });
   } catch (error) {
     console.error("Gagal mengambil data pegawai:", error);
     res.status(500).json({ message: "Gagal mengambil data pegawai" });
@@ -61,31 +46,34 @@ const semuaPegawai = async (req, res) => {
 
 const login = async (req, res) => {
   const { nip, password } = req.body;
-
+  console.log(req.body);
   try {
     let pegawai = await Pegawai.findOne({ nip });
     if (!pegawai) {
       if (nip === process.env.ADMINNIP && password === process.env.ADMINPASS) {
         const passwordTerenkripsi = await EnkripsiPassword(password);
-        // Membuat pegawai baru
-        const pegawaiBaru = new Pegawai({ nama: "admin", nip, password: passwordTerenkripsi, peran: "admin" });
-        // Menyimpan pegawai baru ke database
+        const dataPegawai = {
+          nama: "admin 1",
+          status: "admin",
+          nip,
+          password: passwordTerenkripsi,
+          peran: "admin",
+        };
+        const pegawaiBaru = new Pegawai(dataPegawai);
         await pegawaiBaru.save();
-        const response = { nama, nip, peran };
+        pegawai = pegawaiBaru;
       } else {
-        return res.status(400).json({ message: "NIP atau password salah 1" });
+        return res.status(401).json({ message: "NIP atau password salah 1" });
       }
     }
-
     const isPasswordValid = await bcrypt.compare(password, pegawai.password);
-    if (!isPasswordValid) {
-      return res.status(400).json({ message: "NIP atau password salah 2" });
-    }
+    if (!isPasswordValid) return res.status(402).json({ message: "NIP atau password salah 2" });
+
     const token = jwt.sign({ id: pegawai._id, peran: pegawai.peran }, process.env.JWT_SECRET || "secret", {
       expiresIn: "1w",
     });
 
-    res.json({ token });
+    res.json({ token, pegawai });
   } catch (error) {
     res.status(500).json({ message: "Terjadi kesalahan saat mencoba login" });
   }
@@ -94,22 +82,72 @@ const login = async (req, res) => {
 const profil = async (req, res) => {
   try {
     const user = req.user;
-    // Mencari pegawai berdasarkan ID
     const pegawai = await Pegawai.findById(user.id, { _id: 0, password: 0, __v: 0 });
-    if (!pegawai) {
-      // Jika pegawai tidak ditemukan, kirimkan pesan error
-      return res.status(404).json({ message: "Data tidak ditemukan" });
-    }
+    if (!pegawai) return res.status(404).json({ message: "Data tidak ditemukan" });
+
     res.status(200).json({ data: pegawai });
   } catch (error) {
     console.error("Gagal mengambil data profil:", error);
     res.status(500).json({ message: "Gagal mengambil data profil" });
   }
 };
+const edit = async (req, res) => {
+  try {
+    // const user = req.user;
+    const { _id, nama, status, nip, password, peran, fotoProfil } = req.body;
+    if (!_id || !nama || !status || !nip || !password || !peran) return res.status(400).json({ msg: "Nama, Email, Password dan jabatan harus disertakan" });
 
+    const passwordTerenkripsi = await EnkripsiPassword(password);
+    const user = {
+      nama,
+      nip,
+      status,
+      password: passwordTerenkripsi,
+      peran,
+      fotoProfil,
+    };
+
+    const findPegawai = await Pegawai.findOne({ _id: _id });
+    if (!findPegawai) return res.status(400).json({ msg: "User tidak ditemukan" });
+
+    const cekNIP = await Pegawai.findOne({ nip });
+    if (cekNIP) {
+      if (cekNIP._id == _id) {
+        await Pegawai.findOneAndUpdate({ _id: _id }, { $set: user });
+        res.status(200).json({ user });
+      } else {
+        return res.status(400).json({ msg: "Email sudah digunakan" });
+      }
+    } else {
+      console.log("Email belum digunakan");
+      const User = await Pegawai.findOneAndUpdate({ _id: _id }, { $set: user });
+      if (!User) return res.status(404).json({ msg: "user tidak ditemukan" });
+      res.status(200).json({ user });
+    }
+  } catch (error) {
+    res.status(500).json({ msg: "Gagal mengambil user profil" });
+  }
+};
+
+const hapus = async (req, res) => {
+  try {
+    console.log(req.body);
+    const { _id } = req.body;
+    console.log(_id);
+    const cariPegawai = await Pegawai.findOne({ _id: _id });
+    if (!cariPegawai) return res.status(400).json({ msg: "User tidak ditemukan" });
+    await Pegawai.findByIdAndDelete(_id);
+    await Pegawai.deleteMany;
+    res.status(200).json({ msg: "berhasil Menghapus user" });
+  } catch (error) {
+    res.status(500).json({ msg: "Gagal menghapus user" });
+  }
+};
 module.exports = {
   tambahPegawai,
   semuaPegawai,
   login,
   profil,
+  edit,
+  hapus,
 };
