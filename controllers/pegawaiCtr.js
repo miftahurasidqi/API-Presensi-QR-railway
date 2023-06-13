@@ -11,7 +11,7 @@ const EnkripsiPassword = async (password) => {
 const tambahPegawai = async (req, res) => {
   try {
     const { nama, nip, status, password, peran } = req.body;
-    if (!nama || !nip || !password) return res.status(400).json({ message: "Nama, NIP, Status, role dan password harus disertakan" });
+    if (!nama || !nip || !password) return res.status(400).json({ message: "Mohon Lengkapi Data User" });
 
     const cekNIP = await Pegawai.findOne({ nip });
     if (cekNIP) return res.status(400).json({ message: "NIP sudah digunakan" });
@@ -95,7 +95,7 @@ const edit = async (req, res) => {
   try {
     // const user = req.user;
     const { _id, nama, status, nip, password, peran, fotoProfil } = req.body;
-    if (!_id || !nama || !status || !nip || !password || !peran) return res.status(400).json({ msg: "Nama, Email, Password dan jabatan harus disertakan" });
+    if (!_id || !nama || !status || !nip || !password || !peran) return res.status(400).json({ msg: "Mohon Lengkapi Data User" });
 
     const passwordTerenkripsi = await EnkripsiPassword(password);
     const user = {

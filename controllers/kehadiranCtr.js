@@ -11,15 +11,22 @@ function membuatKode(length) {
     .slice(0, length);
 }
 const waktu = (time) => {
-  const year = time.getFullYear();
-  const month = time.getMonth() + 1;
-  const date = time.getDate();
-  const jam = time.getHours();
-  const min = time.getMinutes();
-  const detik = time.getSeconds();
+  if (time == undefined) {
+    return { tanggal: "-", jam: "-" };
+  } else {
+    const year = time.getFullYear();
+    const month = time.getMonth() + 1;
+    const date = time.getDate();
+    const jam = time.getHours();
+    const min = time.getMinutes();
+    const detik = time.getSeconds();
 
-  const waktu = [`${year}-${month}-${date}`, `${jam}-${min}-${detik}`];
-  return waktu;
+    const waktu = {
+      tanggal: `${year}-${month}-${date}`,
+      jam: `${jam}:${min}:${detik}`,
+    };
+    return waktu;
+  }
 };
 const tampilkanKode = async (req, res) => {
   try {
@@ -86,21 +93,34 @@ const periksaKehadiranSaya = async (req, res) => {
       },
     });
     if (periksaAbsenDatang && periksaAbsenPulang) {
-      const datang = periksaAbsenDatang.datang;
-      const pulang = periksaAbsenDatang.pulang;
-      const waktuDatang = waktu(datang);
-      const waktuPulang = waktu(pulang);
-      return res.status(200).json({ kehadiran: periksaAbsenPulang, waktu: { waktuDatang, waktuPulang }, message: ["Sudah absen masuk dan pulang", "11"] });
+      const waktuDatang = waktu(periksaAbsenDatang.datang);
+      const waktuPulang = waktu(periksaAbsenDatang.pulang);
+      const datang = {
+        jenis: "Absen Datang",
+        tanggal: waktuDatang.tanggal,
+        jam: waktuDatang.jam,
+      };
+      const pulang = {
+        jenis: "Absen Pulang",
+        tanggal: waktuPulang.tanggal,
+        jam: waktuPulang.jam,
+      };
+
+      return res.status(200).json({ kehadiran: [datang, pulang], message: ["Sudah absen masuk dan pulang", "11"] });
     }
     if (periksaAbsenDatang && !periksaAbsenPulang) {
-      const datang = periksaAbsenDatang.datang;
-      const waktuDatang = waktu(datang);
+      const waktuDatang = waktu(periksaAbsenDatang.datang);
+      const datang = {
+        jenis: "Absen Datang",
+        tanggal: waktuDatang.tanggal,
+        jam: waktuDatang.jam,
+      };
 
-      return res.status(201).json({ kehadiran: periksaAbsenDatang, waktu: { waktuDatang }, message: ["Sudah absen masuk, belum absen pulang", "10"] });
+      // return res.status(202).json({ kehadiran: [], message: ["Silahkan scan kode untuk absen masuk", "00"] });
+      return res.status(201).json({ kehadiran: [datang], message: ["Sudah absen masuk, belum absen pulang", "10"] });
     }
     if (!periksaAbsenDatang && !periksaAbsenPulang) {
-      console.log("00");
-      return res.status(202).json({ kehadiran: null, message: ["Silahkan scan kode untuk absen masuk", "00"] });
+      return res.status(202).json({ kehadiran: [], message: ["Silahkan scan kode untuk absen masuk", "00"] });
     }
   } catch (error) {
     console.log(error);
@@ -208,14 +228,137 @@ const semuaKehadiran = async (req, res) => {
     const skip = (halaman - 1) * dataPerHalaman;
     // Mencari semua kehadiran dengan urutan tanggal descending dan paginasi
     const dataKehadiran = await Kehadiran.find({}, { __v: 0 }).sort({ datang: -1 }).skip(skip).limit(dataPerHalaman).populate("pegawai", { password: 0, __v: 0, peran: 0 });
-
-    // Menghitung jumlah total kehadiran
     const totalData = await Kehadiran.countDocuments();
     const totalHalaman = Math.ceil(totalData / dataPerHalaman);
+    let kehadiran = [];
+    dataKehadiran.map((data, i) => {
+      const waktuDatang = waktu(data.datang);
+      const waktuPulang = waktu(data.pulang);
+
+      const kehadiranData = {
+        _id: data._id,
+        pegawai: data.pegawai,
+        tanggal: waktuDatang.tanggal,
+        datang: waktuDatang.jam,
+        pulang: waktuPulang.jam,
+      };
+      kehadiran.push(kehadiranData);
+    });
+    console.log(kehadiran);
 
     // Mengirimkan response dengan data kehadiran dan informasi paginasi
     res.status(200).json({
-      kehadiran: dataKehadiran,
+      kehadiran,
+      halamanInfo: {
+        halaman,
+        totalHalaman,
+        totalData,
+      },
+    });
+  } catch (error) {
+    console.error("Gagal mengambil data kehadiran:", error);
+    res.status(500).json({ message: "Gagal mengambil data kehadiran" });
+  }
+};
+
+const kehadiranSaya = async (req, res) => {
+  try {
+    // Mengambil halaman dari query params, jika tidak ada, gunakan 1 sebagai default
+    const halaman = parseInt(req.query.halaman) || 1;
+    const userId = req.params.id;
+    console.log(userId);
+    // Menentukan jumlah data per halaman
+    const dataPerHalaman = 10;
+
+    // Menghitung jumlah data yang akan dilewati berdasarkan halaman saat ini
+    const skip = (halaman - 1) * dataPerHalaman;
+    // Mencari semua kehadiran dengan urutan tanggal descending dan paginasi
+    const dataKehadiran = await Kehadiran.find({ pegawai: userId }, { __v: 0 }).sort({ datang: -1 }).skip(skip).limit(dataPerHalaman).populate("pegawai", { password: 0, __v: 0, peran: 0 });
+    const totalData = await Kehadiran.countDocuments();
+    const totalHalaman = Math.ceil(totalData / dataPerHalaman);
+    let kehadiran = [];
+    dataKehadiran.map((data, i) => {
+      const waktuDatang = waktu(data.datang);
+      const waktuPulang = waktu(data.pulang);
+
+      const kehadiranData = {
+        _id: data._id,
+        pegawai: data.pegawai,
+        tanggal: waktuDatang.tanggal,
+        datang: waktuDatang.jam,
+        pulang: waktuPulang.jam,
+      };
+      kehadiran.push(kehadiranData);
+    });
+    console.log(kehadiran);
+
+    // Mengirimkan response dengan data kehadiran dan informasi paginasi
+    res.status(200).json({
+      kehadiran,
+      halamanInfo: {
+        halaman,
+        totalHalaman,
+        totalData,
+      },
+    });
+  } catch (error) {
+    console.error("Gagal mengambil data kehadiran:", error);
+    res.status(500).json({ message: "Gagal mengambil data kehadiran" });
+  }
+};
+
+const cariKehadiran = async (req, res) => {
+  try {
+    // console.log(req.headers.tanggal);
+    const halaman = parseInt(req.query.halaman) || 1;
+    const dataPerHalaman = 10;
+    const skip = (halaman - 1) * dataPerHalaman;
+
+    const mulai = new Date(req.headers.tanggal);
+    const akhir = new Date(req.headers.tanggal);
+    console.log("mulai", mulai, "akhir", akhir);
+    mulai.setHours(0, 0, 0, 1);
+    akhir.setHours(23, 59, 59, 10);
+
+    const dataKehadiran = await Kehadiran.find(
+      {
+        datang: {
+          $gte: mulai,
+          $lt: akhir,
+        },
+      },
+      { __v: 0 }
+    )
+      .sort({ datang: -1 })
+      .skip(skip)
+      .limit(dataPerHalaman)
+      .populate("pegawai", { password: 0, __v: 0, peran: 0 });
+
+    if (dataKehadiran.length === 0) {
+      return res.status(404).json({ message: "Data tidak ditemukan" });
+    }
+
+    const totalData = await Kehadiran.countDocuments();
+    const totalHalaman = Math.ceil(totalData / dataPerHalaman);
+    let kehadiran = [];
+    dataKehadiran.map((data, i) => {
+      const waktuDatang = waktu(data.datang);
+      const waktuPulang = waktu(data.pulang);
+
+      const kehadiranData = {
+        _id: data._id,
+        pegawai: data.pegawai,
+        tanggal: waktuDatang.tanggal,
+        datang: waktuDatang.jam,
+        pulang: waktuPulang.jam,
+      };
+      kehadiran.push(kehadiranData);
+    });
+    console.log(kehadiran);
+
+    // Mengirimkan response dengan data kehadiran dan informasi paginasi
+    res.status(200).json({
+      kehadiran,
       halamanInfo: {
         halaman,
         totalHalaman,
@@ -233,4 +376,6 @@ module.exports = {
   periksaKehadiranSaya,
   absen,
   semuaKehadiran,
+  kehadiranSaya,
+  cariKehadiran,
 };

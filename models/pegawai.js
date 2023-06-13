@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
-const PegawaiSchema = new Schema({
+const UserSchema = new Schema({
   nama: {
     type: String,
     required: true,
@@ -26,4 +26,4 @@ const PegawaiSchema = new Schema({
   },
 });
 //
-module.exports = mongoose.model("Pegawai", PegawaiSchema);
+module.exports = mongoose.model("User", UserSchema);
