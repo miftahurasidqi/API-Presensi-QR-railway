@@ -72,8 +72,8 @@ const periksaKehadiranSaya = async (req, res) => {
       return res.status(404).json({ message: "Pegawai tidak ditemukan" });
     }
     // const { GMT7Time, GMT } = konversiWaktu();
-    const mulai = new Date();
-    const akhir = new Date();
+    const mulai = konversiWaktu();
+    const akhir = konversiWaktu();
     mulai.setHours(0, 0, 0, 1);
     akhir.setHours(23, 59, 59, 10);
 
@@ -141,11 +141,11 @@ const absen = async (req, res) => {
       return res.status(404).json({ message: "Kode QR tidak ditemukan" });
     }
 
-    const { GMT7Time } = konversiWaktu();
+    konversiWaktu();
     // const mulai = new Date();
     // const akhir = new Date();
-    const mulai = GMT7Time;
-    const akhir = GMT7Time;
+    const mulai = konversiWaktu();
+    const akhir = konversiWaktu();
     mulai.setHours(0, 0, 0, 1);
     akhir.setHours(23, 59, 59, 10);
     // Mencari pegawai apakah sudah absen
@@ -166,7 +166,7 @@ const absen = async (req, res) => {
 
     let pesan;
     let dataKehadiran;
-    const tanggal = GMT7Time;
+    const tanggal = konversiWaktu();
 
     if (!sudahAbsen && dataKode.jenis === "datang") {
       // Membuat kehadiran baru
