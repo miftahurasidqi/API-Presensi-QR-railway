@@ -23,7 +23,7 @@ app.use("/", tes);
 const PORT = 3280;
 const ConectionsMongoDB = process.env.MONGO_URI;
 const options = {
-  useNewUrlParser: true, // Gunakan parser URL baru
+  useNewUrlParser: true, // Gunakan parser URL bar
   useUnifiedTopology: true, // Gunakan topologi server yang terpusa
 };
 // {
