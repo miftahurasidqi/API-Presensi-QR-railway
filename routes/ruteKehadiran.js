@@ -1,12 +1,13 @@
 const express = require("express");
-const { periksaKehadiranSaya, absen, semuaKehadiran, tampilkanKode, kehadiranSaya, cariKehadiran, cariByIdAndMonth } = require("../controllers/kehadiranCtr");
+const { periksaKehadiranSaya, absen, semuaKehadiran, tampilkanKode, kehadiranSaya, cariKehadiranByTanggal, cariByIdAndMonth, cariKehadiranByName } = require("../controllers/kehadiranCtr");
 const { verifyToken, hanyaAdmin, hanyaPegawai } = require("../middlewares/otentikasiMw");
 const router = express.Router();
 router.get("/kode", verifyToken, hanyaAdmin, tampilkanKode);
 router.get("/periksakehadiran", verifyToken, hanyaPegawai, periksaKehadiranSaya);
 router.get("/", verifyToken, hanyaAdmin, semuaKehadiran);
-router.get("/cari", verifyToken, hanyaAdmin, cariKehadiran);
+router.get("/cariByTanggal", verifyToken, hanyaAdmin, cariKehadiranByTanggal);
 router.get("/cariByMonth/:id/:month", verifyToken, hanyaAdmin, cariByIdAndMonth);
+router.get("/cariByName/:name", verifyToken, hanyaAdmin, cariKehadiranByName);
 router.get("/me/:id", verifyToken, hanyaPegawai, kehadiranSaya);
 router.post("/", verifyToken, hanyaPegawai, absen);
 module.exports = router;
