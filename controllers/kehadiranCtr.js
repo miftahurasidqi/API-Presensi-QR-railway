@@ -65,7 +65,7 @@ const ubahFormatResponse = (data) => {
 
 const tampilkanKode = async (req, res) => {
   try {
-    const { GMT7Time } = konversiWaktu();
+    const GMT7Time = konversiWaktu();
     const generateKodeMasuk = membuatKode(10);
     const generateKodeKeluar = membuatKode(10);
 
